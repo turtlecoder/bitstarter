@@ -8,7 +8,7 @@ var console.log("Buffer: "+buffer.toString();
 
 
 app.get('/', function(request, response) {
-  response.send(buffer.toString());
+  response.send("Hello, World!");
 });
 
 
