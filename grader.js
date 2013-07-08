@@ -24,8 +24,20 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
-var HTMLFILE_DEFAULT = "index.html";
+var rest = require('restler');
+var sys = require('util');
+
+var HTMLFILE_DEFAULT = null;
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = null;
+
+function checkURL(value) {
+    var urlregex = new RegExp("^(http:\/\/|https:\/\/|ftp:\/\/){1}([0-9A-Za-z]+\.)");
+    if (urlregex.test(value)) {
+        return (true);
+    }
+    return (false);
+}
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -34,6 +46,14 @@ var assertFileExists = function(infile) {
         process.exit(1); // http://nodejs.org/api/process.html#process_process_exit_code
     }
     return instr;
+};
+
+var assertURLValid = function(url){
+   if(!checkURL(url)){
+       console.log("%s invalid URL. Exiting!", url);
+       process.exit(1); 
+   }
+   return url; 
 };
 
 var cheerioHtmlFile = function(htmlfile) {
@@ -68,12 +88,53 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'Uniform resouce locator to html file', clone(assertURLValid), URL_DEFAULT)
         .parse(process.argv);
-    var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    console.log("%s", program.file);
+    console.log("%s",program.url);
+    if(program.file===null && program.url===null){
+	console.log("ERROR: Both File and URL unspecified");
+	process.exit(1);
+    }
+    if (program.file!==null && program.url!==null){
+	console.log("ERROR: Cannot specify URL and file at the same time.");
+	process.exit(1);
+    }
+
+    // use file 
+    if(program.file!==null){
+	var checkJson = checkHtmlFile(program.file, program.checks);
+	var outJson = JSON.stringify(checkJson, null, 4);
+	console.log(outJson);
+	process.exit(0);
+    }
+
+    if(program.url!==null){
+	// Read the URL
+	console.log("Reading URL");
+	rest.get(program.url)
+	    .on("complete", 
+		function(response, headers){
+		    console.log("Got response from url!");
+		    if (response instanceof Error){
+			console.error("Error: "+util.format(response.message));
+		    }
+		    else{
+			console.log("Wrote %s", ".index.html");
+			fs.writeFileSync(".index.html", response);
+			var checkJson = checkHtmlFile(".index.html", program.checks);
+			var outJson = JSON.stringify(checkJson, null, 4);
+			console.log(outJson);
+			fs.unlink(".index.html")
+			process.exit(0);
+		    }
+		});
+	// cannot exit heree because we want to wait from the response
+    }
+    
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
+
 
 
