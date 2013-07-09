@@ -129,12 +129,9 @@ if(require.main == module) {
 			process.exit(0);
 		    }
 		});
-	// cannot exit heree because we want to wait from the response
+	// cannot exit here because we want to wait for the response
     }
     
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
-
-
-
